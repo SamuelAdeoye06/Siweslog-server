@@ -67,7 +67,7 @@ const userSchema = new mongoose.Schema({
   },
   otpPurpose: {
     type: String,
-    enum: ['password_change', 'account_deletion'],
+    enum: ['password_change', 'account_deletion', null],
     default: null
   },
 }, { timestamps: true })
