@@ -12,9 +12,16 @@ const schoolSchema = new mongoose.Schema({
     unique: true,
     lowercase: true,
     trim: true
-    // e.g "run" for Redeemer's University
   },
   logo: {
+    type: String,
+    default: ''
+  },
+  state: {
+    type: String,
+    default: ''
+  },
+  city: {
     type: String,
     default: ''
   },
@@ -34,8 +41,8 @@ const schoolSchema = new mongoose.Schema({
   },
   subscriptionStatus: {
     type: String,
-    enum: ['active', 'expired', 'suspended'],
-    default: 'active'
+    enum: ['active', 'inactive', 'expired', 'suspended'],
+    default: 'inactive'
   },
   isActive: {
     type: Boolean,

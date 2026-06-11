@@ -5,7 +5,9 @@ const {
   getSchoolById,
   approveSchool,
   getStats,
-  getAllUsers
+  getAllUsers,
+  toggleAdminStatus,
+  deleteSchool
 } = require('../controllers/superAdmin.controller')
 const { protect, authorizeRoles } = require('../middleware/auth.middleware')
 
@@ -17,5 +19,7 @@ router.get('/schools', getAllSchools)
 router.get('/schools/:id', getSchoolById)
 router.patch('/schools/:id/approve', approveSchool)
 router.get('/users', getAllUsers)
+router.patch('/users/:id/toggle-status', toggleAdminStatus)
+router.delete('/schools/:id', deleteSchool)
 
 module.exports = router

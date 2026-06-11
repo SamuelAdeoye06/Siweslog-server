@@ -12,6 +12,12 @@ connectDB()
 
 const app = express()
 
+// CORS must come before everything else — fixes preflight blocking
+app.use(cors({
+  origin: process.env.CLIENT_URL,
+  credentials: true
+}))
+
 // Security headers
 app.use(helmet())
 
@@ -35,10 +41,6 @@ app.use('/api/auth/login', authLimiter)
 app.use('/api/auth/register-student', authLimiter)
 app.use('/api/auth/register-supervisor', authLimiter)
 
-app.use(cors({
-  origin: process.env.CLIENT_URL,
-  credentials: true
-}))
 app.use(express.json({ limit: '10kb' }))
 app.use(cookieParser())
 
@@ -50,7 +52,6 @@ app.use((req, res, next) => {
         if (key.startsWith('$') || key.includes('.')) {
           delete obj[key]
         } else if (typeof obj[key] === 'string') {
-          // Basic XSS — strip script tags
           obj[key] = obj[key]
             .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
             .replace(/javascript:/gi, '')

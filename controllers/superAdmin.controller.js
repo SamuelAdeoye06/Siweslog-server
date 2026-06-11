@@ -1,15 +1,20 @@
 const School = require('../models/school.model')
 const User = require('../models/user.model')
 const Student = require('../models/student.model')
+const { sendSchoolApprovalEmail } = require('../utils/sendMail')
 
-// @desc    Get all schools
-// @route   GET /api/super-admin/schools?status=pending_approval
-// @access  super_admin
 const getAllSchools = async (req, res) => {
-  const { status } = req.query
+  const { status, search } = req.query
   try {
     const filter = {}
     if (status) filter.approvalStatus = status
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { slug: { $regex: search, $options: 'i' } },
+        { contactEmail: { $regex: search, $options: 'i' } }
+      ]
+    }
     const schools = await School.find(filter).sort({ createdAt: -1 })
     res.json({ count: schools.length, schools })
   } catch (error) {
@@ -17,25 +22,18 @@ const getAllSchools = async (req, res) => {
   }
 }
 
-// @desc    Get single school with its admin
-// @route   GET /api/super-admin/schools/:id
-// @access  super_admin
 const getSchoolById = async (req, res) => {
   try {
     const school = await School.findById(req.params.id)
-    if (!school) {
-      return res.status(404).json({ message: 'School not found' })
-    }
+    if (!school) return res.status(404).json({ message: 'School not found' })
+
     const admin = await User.findOne({
-      schoolId: school._id,
-      role: 'it_admin'
+      schoolId: school._id, role: 'it_admin'
     }).select('-password -refreshToken')
 
     const studentCount = await Student.countDocuments({ schoolId: school._id })
     const supervisorCount = await User.countDocuments({
-      schoolId: school._id,
-      role: 'school_supervisor',
-      approvalStatus: 'approved'
+      schoolId: school._id, role: 'school_supervisor', approvalStatus: 'approved'
     })
 
     res.json({ school, admin, studentCount, supervisorCount })
@@ -44,23 +42,21 @@ const getSchoolById = async (req, res) => {
   }
 }
 
-// @desc    Approve or suspend a school
-// @route   PATCH /api/super-admin/schools/:id/approve
-// @access  super_admin
 const approveSchool = async (req, res) => {
   const { action, subscriptionPlan } = req.body
   try {
     const school = await School.findById(req.params.id)
-    if (!school) {
-      return res.status(404).json({ message: 'School not found' })
-    }
+    if (!school) return res.status(404).json({ message: 'School not found' })
+
     if (!['approve', 'suspend'].includes(action)) {
       return res.status(400).json({ message: 'Action must be approve or suspend' })
     }
+
     school.approvalStatus = action === 'approve' ? 'approved' : 'suspended'
     school.subscriptionStatus = action === 'approve' ? 'active' : 'suspended'
     if (subscriptionPlan) school.subscriptionPlan = subscriptionPlan
     await school.save()
+
     if (action === 'suspend') {
       await User.updateMany(
         { schoolId: school._id, role: { $ne: 'super_admin' } },
@@ -71,7 +67,17 @@ const approveSchool = async (req, res) => {
         { schoolId: school._id, role: { $ne: 'super_admin' } },
         { isActive: true }
       )
+      const admin = await User.findOne({ schoolId: school._id, role: 'it_admin' })
+      if (admin) {
+        sendSchoolApprovalEmail({
+          to: admin.email,
+          firstName: admin.firstName,
+          schoolName: school.name,
+          registrationCode: school.registrationCode
+        }).catch(err => console.error('School approval email failed:', err.message))
+      }
     }
+
     res.json({
       message: `School ${action === 'approve' ? 'approved' : 'suspended'} successfully`,
       school: {
@@ -87,19 +93,11 @@ const approveSchool = async (req, res) => {
   }
 }
 
-// @desc    Get platform stats
-// @route   GET /api/super-admin/stats
-// @access  super_admin
 const getStats = async (req, res) => {
   try {
     const [
-      totalSchools,
-      pendingSchools,
-      activeSchools,
-      suspendedSchools,
-      totalStudents,
-      totalSupervisors,
-      totalAdmins
+      totalSchools, pendingSchools, activeSchools, suspendedSchools,
+      totalStudents, totalSupervisors, totalAdmins
     ] = await Promise.all([
       School.countDocuments(),
       School.countDocuments({ approvalStatus: 'pending_approval' }),
@@ -109,15 +107,9 @@ const getStats = async (req, res) => {
       User.countDocuments({ role: 'school_supervisor' }),
       User.countDocuments({ role: 'it_admin' })
     ])
-
     res.json({
-      totalSchools,
-      pendingSchools,
-      activeSchools,
-      suspendedSchools,
-      totalStudents,
-      totalSupervisors,
-      totalAdmins,
+      totalSchools, pendingSchools, activeSchools, suspendedSchools,
+      totalStudents, totalSupervisors, totalAdmins,
       totalUsers: totalStudents + totalSupervisors + totalAdmins
     })
   } catch (error) {
@@ -125,15 +117,19 @@ const getStats = async (req, res) => {
   }
 }
 
-// @desc    Get all users across all schools (with filter)
-// @route   GET /api/super-admin/users?role=student&schoolId=xxx
-// @access  super_admin
 const getAllUsers = async (req, res) => {
-  const { role, schoolId } = req.query
+  const { role, schoolId, search } = req.query
   try {
     const filter = {}
     if (role) filter.role = role
     if (schoolId) filter.schoolId = schoolId
+    if (search) {
+      filter.$or = [
+        { firstName: { $regex: search, $options: 'i' } },
+        { lastName: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
+      ]
+    }
     const users = await User.find(filter)
       .select('-password -refreshToken')
       .populate('schoolId', 'name slug')
@@ -145,10 +141,35 @@ const getAllUsers = async (req, res) => {
   }
 }
 
+const toggleAdminStatus = async (req, res) => {
+  try {
+    const user = await User.findOne({ _id: req.params.id, role: 'it_admin' })
+    if (!user) return res.status(404).json({ message: 'IT Admin not found' })
+    user.isActive = !user.isActive
+    await user.save()
+    res.json({
+      message: `IT Admin ${user.isActive ? 'activated' : 'deactivated'} successfully`,
+      isActive: user.isActive
+    })
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message })
+  }
+}
+
+const deleteSchool = async (req, res) => {
+  try {
+    const school = await School.findById(req.params.id)
+    if (!school) return res.status(404).json({ message: 'School not found' })
+    await User.deleteMany({ schoolId: school._id })
+    await Student.deleteMany({ schoolId: school._id })
+    await School.findByIdAndDelete(req.params.id)
+    res.json({ message: 'School and all associated data deleted successfully' })
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message })
+  }
+}
+
 module.exports = {
-  getAllSchools,
-  getSchoolById,
-  approveSchool,
-  getStats,
-  getAllUsers
+  getAllSchools, getSchoolById, approveSchool, getStats,
+  getAllUsers, toggleAdminStatus, deleteSchool
 }

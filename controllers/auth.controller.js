@@ -3,21 +3,22 @@ const School = require('../models/school.model')
 const Student = require('../models/student.model')
 const { generateAccessToken, generateRefreshToken } = require('../utils/generateTokens')
 const { validatePassword, validateEmail, validatePhone } = require('../utils/validators')
+const { sendWelcomeEmail } = require('../utils/sendMail')
 const jwt = require('jsonwebtoken')
 
 const registerSchool = async (req, res) => {
   const { schoolName, schoolSlug, schoolEmail, schoolAddress, adminFirstName, adminLastName, adminEmail, adminPassword, adminPhone } = req.body
   try {
-    // Validate inputs
-    const emailCheck = validateEmail(email)
+    // Fix: validate the correct variables
+    const emailCheck = validateEmail(adminEmail)
     if (!emailCheck.valid) return res.status(400).json({ message: emailCheck.message })
 
-    const passwordCheck = validatePassword(password)
+    const passwordCheck = validatePassword(adminPassword)
     if (!passwordCheck.valid) return res.status(400).json({ message: passwordCheck.message })
 
-    const phoneCheck = validatePhone(phone)
+    const phoneCheck = validatePhone(adminPhone)
     if (!phoneCheck.valid) return res.status(400).json({ message: phoneCheck.message })
-      
+
     const schoolExists = await School.findOne({ slug: schoolSlug })
     if (schoolExists) {
       return res.status(400).json({ message: 'A school with this slug already exists' })
@@ -38,6 +39,7 @@ const registerSchool = async (req, res) => {
     const code = `${schoolSlug.toUpperCase()}-${new Date().getFullYear()}-IT`
     school.registrationCode = code
     await school.save()
+
     const admin = await User.create({
       schoolId: school._id,
       firstName: adminFirstName,
@@ -47,6 +49,14 @@ const registerSchool = async (req, res) => {
       phone: adminPhone,
       role: 'it_admin'
     })
+
+    // Send welcome email — fire and forget (don't block response)
+    sendWelcomeEmail({
+      to: adminEmail,
+      firstName: adminFirstName,
+      role: 'it_admin'
+    }).catch(err => console.error('Welcome email failed:', err.message))
+
     res.status(201).json({
       message: 'School registration submitted. Awaiting super admin approval.',
       registrationCode: code,
@@ -61,7 +71,6 @@ const registerSchool = async (req, res) => {
 const registerStudent = async (req, res) => {
   const { registrationCode, firstName, lastName, email, password, phone, matricNumber, department, faculty, yearOfStudy, residentialAddress, healthProblems, siwesCycleYear } = req.body
   try {
-    // Validate inputs
     const emailCheck = validateEmail(email)
     if (!emailCheck.valid) return res.status(400).json({ message: emailCheck.message })
 
@@ -76,8 +85,8 @@ const registerStudent = async (req, res) => {
       return res.status(400).json({ message: 'Invalid registration code' })
     }
     if (school.approvalStatus !== 'approved') {
-      return res.status(403).json({ 
-        message: 'This school has not been approved yet. Contact your IT admin.' 
+      return res.status(403).json({
+        message: 'This school has not been approved yet. Contact your IT admin.'
       })
     }
     if (!school.isActive) {
@@ -111,6 +120,11 @@ const registerStudent = async (req, res) => {
       healthProblems: healthProblems || '',
       siwesCycleYear
     })
+
+    // Send welcome email
+    sendWelcomeEmail({ to: email, firstName, role: 'student' })
+      .catch(err => console.error('Welcome email failed:', err.message))
+
     const accessToken = generateAccessToken(user._id)
     const refreshToken = generateRefreshToken(user._id)
     user.refreshToken = refreshToken
@@ -141,7 +155,6 @@ const registerStudent = async (req, res) => {
 const registerSupervisor = async (req, res) => {
   const { registrationCode, firstName, lastName, email, password, phone } = req.body
   try {
-    // Validate inputs
     const emailCheck = validateEmail(email)
     if (!emailCheck.valid) return res.status(400).json({ message: emailCheck.message })
 
@@ -150,14 +163,14 @@ const registerSupervisor = async (req, res) => {
 
     const phoneCheck = validatePhone(phone)
     if (!phoneCheck.valid) return res.status(400).json({ message: phoneCheck.message })
-      
+
     const school = await School.findOne({ registrationCode })
     if (!school) {
       return res.status(400).json({ message: 'Invalid registration code' })
     }
     if (school.approvalStatus !== 'approved') {
-      return res.status(403).json({ 
-        message: 'This school has not been approved yet. Contact your IT admin.' 
+      return res.status(403).json({
+        message: 'This school has not been approved yet. Contact your IT admin.'
       })
     }
     if (!school.isActive) {
@@ -177,6 +190,11 @@ const registerSupervisor = async (req, res) => {
       phone,
       approvalStatus: 'pending'
     })
+
+    // Send welcome email (pending state)
+    sendWelcomeEmail({ to: email, firstName, role: 'school_supervisor' })
+      .catch(err => console.error('Welcome email failed:', err.message))
+
     res.status(201).json({
       message: 'Registration successful. Your account is pending approval by the IT admin.',
       user: {

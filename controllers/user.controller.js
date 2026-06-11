@@ -1,5 +1,6 @@
 const User = require('../models/user.model')
 const Student = require('../models/student.model')
+const { sendSupervisorApprovalEmail } = require('../utils/sendMail')
 
 const getUsers = async (req, res) => {
   const { role } = req.query
@@ -116,6 +117,15 @@ const approveSupervisor = async (req, res) => {
     }
     supervisor.approvalStatus = action === 'approve' ? 'approved' : 'rejected'
     await supervisor.save()
+
+    // Send approval email if approved
+    if (action === 'approve') {
+      sendSupervisorApprovalEmail({
+        to: supervisor.email,
+        firstName: supervisor.firstName
+      }).catch(err => console.error('Supervisor approval email failed:', err.message))
+    }
+
     res.json({
       message: `Supervisor account ${action === 'approve' ? 'approved' : 'rejected'} successfully`,
       supervisor: {

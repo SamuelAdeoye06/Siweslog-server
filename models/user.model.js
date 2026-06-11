@@ -57,6 +57,19 @@ const userSchema = new mongoose.Schema({
     // default is approved because students and admins 
     // don't need approval — only supervisors do
   },
+  otpCode: {
+    type: String,
+    default: null
+  },
+  otpExpiry: {
+    type: Date,
+    default: null
+  },
+  otpPurpose: {
+    type: String,
+    enum: ['password_change', 'account_deletion'],
+    default: null
+  },
 }, { timestamps: true })
 
 // Hash password before saving
