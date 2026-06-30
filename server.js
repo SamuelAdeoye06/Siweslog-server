@@ -24,25 +24,35 @@ app.use(helmet())
 // Prevent HTTP parameter pollution
 app.use(hpp())
 
-// Rate limiting — TEMPORARILY DISABLED FOR TESTING
-// IMPORTANT: re-enable before deploying to production by uncommenting below.
-// Without this, login/register endpoints are open to brute-force attempts.
-//
-// const limiter = rateLimit({
-//   windowMs: 15 * 60 * 1000,
-//   max: 100,
-//   message: { message: 'Too many requests from this IP, please try again later' }
-// })
-// app.use('/api', limiter)
-//
-// const authLimiter = rateLimit({
-//   windowMs: 15 * 60 * 1000,
-//   max: 10,
-//   message: { message: 'Too many attempts, please try again later' }
-// })
-// app.use('/api/auth/login', authLimiter)
-// app.use('/api/auth/register-student', authLimiter)
-// app.use('/api/auth/register-supervisor', authLimiter)
+// ── RATE LIMITING ──
+// Tuned to accommodate legitimate background polling (dashboard refresh
+// every 30s, notification bell every 45s) across multiple open tabs,
+// while still blocking real abuse/brute-force patterns.
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 400, // generous enough for normal multi-tab usage + polling
+  standardHeaders: true, // adds RateLimit-* headers so the frontend can react gracefully
+  legacyHeaders: false,
+  message: {
+    message: 'You are sending requests too quickly. Please wait a few minutes and try again. If this keeps happening, contact support.'
+  }
+})
+app.use('/api', limiter)
+
+// Auth endpoints stay tighter since these are the actual brute-force targets
+// (login/registration), not background polling endpoints.
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20, // ~1 attempt every 45s sustained, plenty for a real user who mistypes a password a few times
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    message: 'Too many login attempts. Please wait 15 minutes before trying again, or use "Forgot Password" if you are having trouble signing in.'
+  }
+})
+app.use('/api/auth/login', authLimiter)
+app.use('/api/auth/register-student', authLimiter)
+app.use('/api/auth/register-supervisor', authLimiter)
 
 app.use(express.json({ limit: '10kb' }))
 app.use(cookieParser())
