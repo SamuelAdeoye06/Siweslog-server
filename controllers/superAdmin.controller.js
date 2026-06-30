@@ -2,6 +2,7 @@ const School = require('../models/school.model')
 const User = require('../models/user.model')
 const Student = require('../models/student.model')
 const { sendSchoolApprovalEmail } = require('../utils/sendMail')
+const { notify } = require('../utils/notify')
 
 const getAllSchools = async (req, res) => {
   const { status, search } = req.query
@@ -75,6 +76,13 @@ const approveSchool = async (req, res) => {
           schoolName: school.name,
           registrationCode: school.registrationCode
         }).catch(err => console.error('School approval email failed:', err.message))
+
+        notify({
+          userId: admin._id,
+          type: 'school_approved',
+          message: `${school.name} has been approved on SIWESlog. Your registration code is ${school.registrationCode}.`,
+          link: '/admin/dashboard'
+        })
       }
     }
 

@@ -1,9 +1,9 @@
 const mongoose = require('mongoose')
 
-const studentSchema = new mongoose.Schema({
-  userId: {
+const placementSchema = new mongoose.Schema({
+  studentId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'Student',
     required: true
   },
   schoolId: {
@@ -11,48 +11,71 @@ const studentSchema = new mongoose.Schema({
     ref: 'School',
     required: true
   },
-  matricNumber: {
+  companyName: {
     type: String,
     required: true,
     trim: true
   },
-  department: {
+  companyLocation: {
     type: String,
-    required: true,
-    trim: true
+    required: true
   },
-  faculty: {
-    type: String,
-    required: true,
-    trim: true
-  },
-  yearOfStudy: {
-    type: String,
-    required: true,
-    trim: true
-  },
-  residentialAddress: {
+  yearOperationBegan: {
     type: String,
     default: ''
   },
-  healthProblems: {
+  majorAreasOfOperation: {
     type: String,
     default: ''
   },
-  siwesCycleYear: {
+  productsJobUndertaken: {
     type: String,
-    required: true // e.g "2024/2025"
+    default: ''
   },
-  schoolSupervisorId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+  employmentSize: {
+    type: String,
+    enum: ['small', 'medium', 'large'],
+    default: 'small'
+  },
+  fullOperation: {
+    type: String,
+    default: ''
+  },
+  minorOperation: {
+    type: String,
+    default: ''
+  },
+  capitalInvestment: {
+    type: String,
+    default: ''
+  },
+  otherRelevantInfo: {
+    type: String,
+    default: ''
+  },
+  organogramImage: {
+    type: String,
+    default: ''
+  },
+  industrySupervisors: [
+    {
+      name: { type: String, required: true },
+      email: { type: String, required: true },
+      phone: { type: String, required: true },
+      isActive: { type: Boolean, default: true },
+      assignedFrom: { type: Date, default: Date.now },
+      assignedTo: { type: Date, default: null },
+      approvalToken: { type: String, default: '' }
+    }
+  ],
+  isApprovedByAdmin: {
+    type: Boolean,
+    default: false
+  },
+  approvedAt: {
+    type: Date,
     default: null
-  },
-  status: {
-    type: String,
-    enum: ['pending', 'active', 'completed'],
-    default: 'pending'
   }
 }, { timestamps: true })
 
-module.exports = mongoose.model('Student', studentSchema)
+module.exports = mongoose.model('Placement', placementSchema)

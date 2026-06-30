@@ -1,6 +1,8 @@
 const User = require('../models/user.model')
 const Student = require('../models/student.model')
 const { sendSupervisorApprovalEmail } = require('../utils/sendMail')
+const { notify } = require('../utils/notify')
+const WeeklyLog = require('../models/weeklyLog.model')
 
 const getUsers = async (req, res) => {
   const { role } = req.query
@@ -94,12 +96,40 @@ const assignSupervisor = async (req, res) => {
     const student = await Student.findOne({
       userId: req.params.studentId,
       schoolId: req.user.schoolId
-    })
+    }).populate('userId', 'firstName lastName')
     if (!student) {
       return res.status(404).json({ message: 'Student not found' })
     }
     student.schoolSupervisorId = supervisorId
     await student.save()
+
+    const studentName = `${student.userId.firstName} ${student.userId.lastName}`
+
+    // Notify the supervisor they've been assigned to this student
+    notify({
+      userId: supervisor._id,
+      type: 'supervisor_assigned_student',
+      message: `You've been assigned as the school supervisor for ${studentName}`,
+      link: `/supervisor/students/${student.userId._id}`
+    })
+
+    // Backfill: if this student already has weeks that were industry-approved
+    // BEFORE a supervisor existed to be notified, those notifications never
+    // fired. Surface them now so nothing silently waits unseen.
+    const pendingWeeks = await WeeklyLog.find({
+      studentId: student._id,
+      status: 'industry_approved'
+    }).sort({ weekNumber: 1 })
+
+    pendingWeeks.forEach(log => {
+      notify({
+        userId: supervisor._id,
+        type: 'log_awaiting_school',
+        message: `${studentName}'s Week ${log.weekNumber} has been approved by their industry supervisor and is awaiting your sign-off`,
+        link: `/supervisor/students/${student.userId._id}`
+      })
+    })
+
     res.json({ message: 'Supervisor assigned successfully' })
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message })

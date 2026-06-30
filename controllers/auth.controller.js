@@ -6,6 +6,7 @@ const { validatePassword, validateEmail, validatePhone } = require('../utils/val
 const { sendWelcomeEmail, sendOTPEmail } = require('../utils/sendMail')
 const { generateOTP, otpExpiry } = require('../utils/otp')
 const jwt = require('jsonwebtoken')
+const { notify } = require('../utils/notify')
 
 const registerSchool = async (req, res) => {
   const { schoolName, schoolSlug, schoolEmail, schoolAddress, adminFirstName, adminLastName, adminEmail, adminPassword, adminPhone } = req.body
@@ -58,6 +59,17 @@ const registerSchool = async (req, res) => {
       role: 'it_admin'
     }).catch(err => console.error('Welcome email failed:', err.message))
 
+    // Notify every super admin that a new school is waiting for approval
+    const superAdmins = await User.find({ role: 'super_admin' })
+    superAdmins.forEach(sa => {
+      notify({
+        userId: sa._id,
+        type: 'school_pending_approval',
+        message: `${schoolName} just registered and is awaiting your approval`,
+        link: '/super-admin/schools'
+      })
+    })
+
     res.status(201).json({
       message: 'School registration submitted. Awaiting super admin approval.',
       registrationCode: code,
@@ -70,7 +82,7 @@ const registerSchool = async (req, res) => {
 }
 
 const registerStudent = async (req, res) => {
-  const { registrationCode, firstName, lastName, email, password, phone, matricNumber, department, faculty, yearOfStudy, residentialAddress, healthProblems, siwesCycleYear } = req.body
+  const { registrationCode, firstName, lastName, email, password, phone, matricNumber, department, faculty, yearOfStudy, residentialAddress, healthProblems, siwesCycleYear, siwesDurationWeeks } = req.body
   try {
     const emailCheck = validateEmail(email)
     if (!emailCheck.valid) return res.status(400).json({ message: emailCheck.message })
@@ -101,6 +113,12 @@ const registerStudent = async (req, res) => {
     if (matricExists) {
       return res.status(400).json({ message: 'A student with this matric number already exists' })
     }
+
+    const durationWeeks = Number(siwesDurationWeeks)
+    if (!durationWeeks || durationWeeks < 1 || durationWeeks > 52) {
+      return res.status(400).json({ message: 'Enter a valid SIWES duration in weeks' })
+    }
+
     const user = await User.create({
       schoolId: school._id,
       firstName,
@@ -119,12 +137,24 @@ const registerStudent = async (req, res) => {
       yearOfStudy,
       residentialAddress: residentialAddress || '',
       healthProblems: healthProblems || '',
-      siwesCycleYear
+      siwesCycleYear,
+      siwesDurationWeeks: durationWeeks
     })
 
     // Send welcome email
     sendWelcomeEmail({ to: email, firstName, role: 'student' })
       .catch(err => console.error('Welcome email failed:', err.message))
+
+    // Notify the IT admin(s) of this school that a new student joined
+    const itAdmins = await User.find({ schoolId: school._id, role: 'it_admin' })
+    itAdmins.forEach(admin => {
+      notify({
+        userId: admin._id,
+        type: 'student_registered',
+        message: `${firstName} ${lastName} registered as a new student using your school's code`,
+        link: '/admin/students'
+      })
+    })
 
     const accessToken = generateAccessToken(user._id)
     const refreshToken = generateRefreshToken(user._id)

@@ -24,24 +24,25 @@ app.use(helmet())
 // Prevent HTTP parameter pollution
 app.use(hpp())
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: { message: 'Too many requests from this IP, please try again later' }
-})
-app.use('/api', limiter)
-
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: { message: 'Too many attempts, please try again later' }
-})
-app.use('/api/auth/login', authLimiter)
-app.use('/api/auth/forgot-password', authLimiter)
-app.use('/api/auth/reset-password', authLimiter)
-app.use('/api/auth/register-student', authLimiter)
-app.use('/api/auth/register-supervisor', authLimiter)
+// Rate limiting — TEMPORARILY DISABLED FOR TESTING
+// IMPORTANT: re-enable before deploying to production by uncommenting below.
+// Without this, login/register endpoints are open to brute-force attempts.
+//
+// const limiter = rateLimit({
+//   windowMs: 15 * 60 * 1000,
+//   max: 100,
+//   message: { message: 'Too many requests from this IP, please try again later' }
+// })
+// app.use('/api', limiter)
+//
+// const authLimiter = rateLimit({
+//   windowMs: 15 * 60 * 1000,
+//   max: 10,
+//   message: { message: 'Too many attempts, please try again later' }
+// })
+// app.use('/api/auth/login', authLimiter)
+// app.use('/api/auth/register-student', authLimiter)
+// app.use('/api/auth/register-supervisor', authLimiter)
 
 app.use(express.json({ limit: '10kb' }))
 app.use(cookieParser())
@@ -70,13 +71,23 @@ app.use((req, res, next) => {
 
 const authRoutes = require('./routes/auth.route')
 const settingsRoutes = require('./routes/settings.route')
+const logRoutes = require('./routes/log.route')
+const placementRoutes = require('./routes/placement.route')
 const userRoutes = require('./routes/user.route')
 const superAdminRoutes = require('./routes/superAdmin.route')
+const supervisorRoutes = require('./routes/supervisor.route')
+const pdfRoutes = require('./routes/pdf.route')
+const notificationRoutes = require('./routes/notification.route')
 
 app.use('/api/auth', authRoutes)
 app.use('/api/settings', settingsRoutes)
+app.use('/api/logs', logRoutes)
+app.use('/api/placement', placementRoutes)
 app.use('/api/users', userRoutes)
 app.use('/api/super-admin', superAdminRoutes)
+app.use('/api/supervisor', supervisorRoutes)
+app.use('/api/pdf', pdfRoutes)
+app.use('/api/notifications', notificationRoutes)
 
 app.get('/', (req, res) => {
   res.json({ message: 'SIWESlog API is running' })

@@ -41,7 +41,16 @@ const studentSchema = new mongoose.Schema({
   },
   siwesCycleYear: {
     type: String,
-    required: true // e.g "2024/2025"
+    required: true
+  },
+  siwesDurationWeeks: {
+    type: Number,
+    required: true,
+    min: 1,
+    max: 52
+    // Free numeric input set at registration — different schools/students
+    // run SIWES for different lengths (10, 12, 24 weeks etc.), so this is
+    // no longer restricted to a fixed dropdown of options.
   },
   schoolSupervisorId: {
     type: mongoose.Schema.Types.ObjectId,
