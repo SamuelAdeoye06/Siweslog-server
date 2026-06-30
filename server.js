@@ -12,6 +12,14 @@ connectDB()
 
 const app = express()
 
+// Trust the first hop proxy (Railway's load balancer / reverse proxy).
+// Without this, Express doesn't trust the X-Forwarded-For header on
+// incoming requests, which breaks express-rate-limit's ability to
+// correctly identify unique clients behind the proxy — it would otherwise
+// either throw a validation error or rate-limit everyone as a single IP.
+// "1" means trust exactly one hop, matching Railway's single proxy layer.
+app.set('trust proxy', 1)
+
 // CORS must come before everything else — fixes preflight blocking
 app.use(cors({
   origin: process.env.CLIENT_URL,
