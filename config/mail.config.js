@@ -13,4 +13,13 @@ const transporter = nodemailer.createTransport({
   family: 4
 })
 
+// Verify nodemailer configuration on startup to log diagnostics
+transporter.verify((error, success) => {
+  if (error) {
+    console.error('Nodemailer SMTP connection verification failed:', error.message)
+  } else {
+    console.log('Nodemailer SMTP connection verified successfully!')
+  }
+})
+
 module.exports = transporter

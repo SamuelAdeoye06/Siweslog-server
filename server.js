@@ -20,9 +20,26 @@ const app = express()
 // "1" means trust exactly one hop, matching Railway's single proxy layer.
 app.set('trust proxy', 1)
 
-// CORS must come before everything else — fixes preflight blocking
+// CORS configuration allowing dynamic local and Vercel environments
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  'http://localhost:5173',
+  'http://localhost:5000'
+].filter(Boolean)
+
 app.use(cors({
-  origin: process.env.CLIENT_URL,
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true)
+    const isAllowed = allowedOrigins.includes(origin) || 
+                      origin.endsWith('.vercel.app') ||
+                      origin.includes('vercel.app') ||
+                      origin.startsWith('http://localhost:')
+    if (isAllowed) {
+      callback(null, true)
+    } else {
+      callback(new Error(`Origin ${origin} not allowed by CORS`))
+    }
+  },
   credentials: true
 }))
 
