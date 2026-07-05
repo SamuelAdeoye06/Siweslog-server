@@ -1,24 +1,28 @@
 const nodemailer = require('nodemailer')
 
+// Using explicit host/port instead of `service: 'gmail'` shorthand.
+// The shorthand overrides the `family` option internally, causing Nodemailer
+// to resolve smtp.gmail.com to its IPv6 address (2607:f8b0:...) which is
+// unreachable on Railway (and many other cloud hosts). Explicit config lets
+// `family: 4` actually work, and port 587 (STARTTLS) is far less likely to
+// be blocked by cloud providers than port 465 (SSL).
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 587,
+  secure: false, // STARTTLS — upgraded after connection
   auth: {
     user: process.env.MAIL_USER,
     pass: process.env.MAIL_PASS
   },
-  // Force IPv4 — some hosts (Railway included) route Gmail SMTP's IPv6
-  // address (smtp.gmail.com resolving to a 2607:f8b0:... address) through
-  // an unreachable network path, causing every send to fail with
-  // ENETUNREACH. Forcing the connection through IPv4 avoids that entirely.
-  family: 4
+  family: 4 // Force IPv4 — avoids ENETUNREACH on Railway/Render
 })
 
-// Verify nodemailer configuration on startup to log diagnostics
-transporter.verify((error, success) => {
+// Verify on startup so misconfiguration is obvious in logs
+transporter.verify((error) => {
   if (error) {
     console.error('Nodemailer SMTP connection verification failed:', error.message)
   } else {
-    console.log('Nodemailer SMTP connection verified successfully!')
+    console.log('Nodemailer SMTP connection verified — mail is ready')
   }
 })
 
