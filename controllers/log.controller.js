@@ -139,7 +139,7 @@ const submitLog = async (req, res) => {
 
     const approvalLink = `${process.env.CLIENT_URL}/approve-log/${token}`
     const studentName = `${req.user.firstName} ${req.user.lastName}`
-    const transporter = require('../config/mail.config')
+    const transporter = await require('../config/mail.config').getTransporter()
     await transporter.sendMail({
       from: `"SIWESlog" <${process.env.MAIL_USER}>`,
       to: chosenSupervisor.email,

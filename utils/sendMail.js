@@ -1,6 +1,7 @@
-const transporter = require('../config/mail.config')
+const { getTransporter } = require('../config/mail.config')
 
 const sendMail = async ({ to, subject, html }) => {
+  const transporter = await getTransporter()
   try {
     await transporter.sendMail({
       from: `"SIWESlog" <${process.env.MAIL_USER}>`,

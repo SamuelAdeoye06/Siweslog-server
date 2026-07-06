@@ -23,7 +23,8 @@ router.post('/logout', protect, logout)
 
 // Test email configuration in production
 router.get('/test-email', async (req, res) => {
-  const transporter = require('../config/mail.config')
+  const { getTransporter } = require('../config/mail.config')
+  const transporter = await getTransporter()
   try {
     if (!process.env.MAIL_USER || !process.env.MAIL_PASS) {
       throw new Error('MAIL_USER or MAIL_PASS environment variables are missing')

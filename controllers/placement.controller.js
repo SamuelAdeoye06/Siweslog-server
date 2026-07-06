@@ -1,11 +1,12 @@
 const Placement = require('../models/placement.model')
 const Student = require('../models/student.model')
 const { cloudinary } = require('../config/cloudinary')
-const transporter = require('../config/mail.config')
+const { getTransporter } = require('../config/mail.config')
 const { notify } = require('../utils/notify')
 
 // Shared email sender for "you've been added as an industry supervisor"
 async function sendSupervisorAddedEmail({ to, supervisorName, studentName, companyName }) {
+  const transporter = await getTransporter()
   await transporter.sendMail({
     from: `"SIWESlog" <${process.env.MAIL_USER}>`,
     to,
