@@ -1,43 +1,8 @@
 const Placement = require('../models/placement.model')
 const Student = require('../models/student.model')
 const { cloudinary } = require('../config/cloudinary')
-const { getTransporter } = require('../config/mail.config')
+const { sendIndustrySupervisorAddedEmail } = require('../utils/sendMail')
 const { notify } = require('../utils/notify')
-
-// Shared email sender for "you've been added as an industry supervisor"
-async function sendSupervisorAddedEmail({ to, supervisorName, studentName, companyName }) {
-  const transporter = await getTransporter()
-  await transporter.sendMail({
-    from: `"SIWESlog" <${process.env.MAIL_USER}>`,
-    to,
-    subject: `You've been added as an Industry Supervisor on SIWESlog`,
-    html: `
-      <!DOCTYPE html><html><head><meta charset="utf-8"></head>
-      <body style="margin:0;padding:0;background:#F5F7FA;font-family:Arial,sans-serif;">
-        <div style="max-width:560px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #E2E8F0;">
-          <div style="background:#080F1F;padding:24px 32px;">
-            <div style="font-size:20px;font-weight:800;color:#fff;">SIWES<span style="color:#4F8EF7;">log</span></div>
-          </div>
-          <div style="padding:32px;">
-            <h2 style="font-size:20px;font-weight:800;color:#0F172A;margin:0 0 8px;">You've Been Registered as an Industry Supervisor</h2>
-            <p style="font-size:15px;color:#64748B;line-height:1.65;margin:0 0 8px;">
-              Hi ${supervisorName}, <strong>${studentName}</strong> has listed you as their industry-based supervisor at <strong>${companyName}</strong> on SIWESlog, a digital logbook platform for SIWES industrial training.
-            </p>
-            <p style="font-size:14px;color:#64748B;line-height:1.65;margin:0 0 24px;">
-              No account or signup is needed on your part. Whenever ${studentName} submits a week of their logbook for your review, you'll receive an email with a secure link to view and approve it — no login required.
-            </p>
-            <p style="font-size:12px;color:#94A3B8;margin:0;">
-              If you believe this was sent in error, you can safely ignore this email.
-            </p>
-          </div>
-          <div style="padding:16px 32px;border-top:1px solid #E2E8F0;font-size:12px;color:#94A3B8;text-align:center;">
-            © ${new Date().getFullYear()} SIWESlog. All rights reserved.
-          </div>
-        </div>
-      </body></html>
-    `
-  })
-}
 
 // @desc    Get student's placement profile
 // @route   GET /api/placement/my-placement
@@ -139,7 +104,7 @@ const addIndustrySupervisor = async (req, res) => {
     await placement.save()
 
     const studentName = `${student.userId.firstName} ${student.userId.lastName}`
-    sendSupervisorAddedEmail({
+    sendIndustrySupervisorAddedEmail({
       to: email,
       supervisorName: name,
       studentName,

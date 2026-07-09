@@ -1,5 +1,6 @@
 const WeeklyLog = require('../models/weeklyLog.model')
 const Student = require('../models/student.model')
+const { sendLogApprovalEmail } = require('../utils/sendMail')
 const User = require('../models/user.model')
 const Placement = require('../models/placement.model')
 const { cloudinary } = require('../config/cloudinary')
@@ -139,39 +140,13 @@ const submitLog = async (req, res) => {
 
     const approvalLink = `${process.env.CLIENT_URL}/approve-log/${token}`
     const studentName = `${req.user.firstName} ${req.user.lastName}`
-    const transporter = await require('../config/mail.config').getTransporter()
-    await transporter.sendMail({
-      from: `"SIWESlog" <${process.env.MAIL_USER}>`,
+    sendLogApprovalEmail({
       to: chosenSupervisor.email,
-      subject: `Week ${log.weekNumber} SIWES Log — Approval Needed`,
-      html: `
-        <!DOCTYPE html><html><head><meta charset="utf-8"></head>
-        <body style="margin:0;padding:0;background:#F5F7FA;font-family:Arial,sans-serif;">
-          <div style="max-width:560px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #E2E8F0;">
-            <div style="background:#080F1F;padding:24px 32px;">
-              <div style="font-size:20px;font-weight:800;color:#fff;">SIWES<span style="color:#4F8EF7;">log</span></div>
-            </div>
-            <div style="padding:32px;">
-              <h2 style="font-size:20px;font-weight:800;color:#0F172A;margin:0 0 8px;">Logbook Approval Request</h2>
-              <p style="font-size:15px;color:#64748B;line-height:1.65;margin:0 0 8px;">
-                <strong>${studentName}</strong> has submitted their <strong>Week ${log.weekNumber}</strong> SIWES logbook entry for your review and approval.
-              </p>
-              <p style="font-size:14px;color:#64748B;margin:0 0 24px;">
-                Period: <strong>${new Date(log.dateFrom).toLocaleDateString('en-GB')} — ${new Date(log.dateTo).toLocaleDateString('en-GB')}</strong>
-              </p>
-              <a href="${approvalLink}" style="display:inline-block;background:#4F8EF7;color:#fff;padding:13px 28px;border-radius:6px;text-decoration:none;font-size:14px;font-weight:600;margin-bottom:20px;">
-                Review &amp; Approve →
-              </a>
-              <p style="font-size:12px;color:#94A3B8;margin:0;">
-                This link expires in 7 days. No account is needed — just click the link to review.
-              </p>
-            </div>
-            <div style="padding:16px 32px;border-top:1px solid #E2E8F0;font-size:12px;color:#94A3B8;text-align:center;">
-              © ${new Date().getFullYear()} SIWESlog. All rights reserved.
-            </div>
-          </div>
-        </body></html>
-      `
+      studentName,
+      weekNumber: log.weekNumber,
+      dateFrom: log.dateFrom,
+      dateTo: log.dateTo,
+      approvalLink
     }).catch(err => console.error('Approval email failed:', err.message))
 
     res.json({ message: 'Log submitted successfully. Approval link sent to your industry supervisor.', log })
