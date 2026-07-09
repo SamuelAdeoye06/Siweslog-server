@@ -23,6 +23,8 @@ app.set('trust proxy', 1)
 // CORS configuration allowing dynamic local and Vercel environments
 const allowedOrigins = [
   process.env.CLIENT_URL,
+  'https://www.siweslog.com',
+  'https://siweslog.com',
   'http://localhost:5173',
   'http://localhost:5000'
 ].filter(Boolean)
